@@ -13,7 +13,7 @@ import "dotenv/config";
 
 // ─── Configuración ────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
-const SECRET_KEY = process.env.SECRET_KEY || "clave_no_configurada";
+const APP_SECRET = process.env.APP_SECRET || "clave_no_configurada"; // ← renombrado
 const DEFAULT_CC = process.env.DEFAULT_COUNTRY_CODE || "591";
 const AUTH_FOLDER = "./auth_info_baileys";
 
@@ -47,7 +47,7 @@ async function connectToWhatsApp() {
     if (qr) {
       currentQR = qr;
       qrcode.generate(qr, { small: true });
-      console.log("📱 QR listo — abrí /qr en el navegador para escanearlo");
+      console.log("📱 QR listo — abrí /qr en el navegador");
     }
 
     if (connection === "close") {
@@ -120,10 +120,12 @@ function construirMensajeBienvenida(nombre, interes) {
 const app = express();
 app.use(express.json());
 
-// /qr y /status son públicos — el resto requiere x-secret-key
+// /qr y /status son públicos
 app.use((req, res, next) => {
   if (["/qr", "/status"].includes(req.path)) return next();
-  if (req.headers["x-secret-key"] !== SECRET_KEY) {
+  const key = req.headers["x-secret-key"];
+  console.log(`🔑 Key recibida: "${key}" | Esperada: "${APP_SECRET}"`); // debug temporal
+  if (key !== APP_SECRET) {
     return res.status(401).json({ error: "No autorizado" });
   }
   next();
@@ -159,16 +161,9 @@ app.get("/qr", async (req, res) => {
         <head><meta http-equiv="refresh" content="25"></head>
         <body style="font-family:sans-serif;text-align:center;padding:40px;background:#f5f5f5">
           <h2>📱 Escaneá este QR con WhatsApp</h2>
-          <p style="color:#555">
-            WhatsApp → ⋮ → <b>Dispositivos vinculados</b> → Vincular dispositivo
-          </p>
-          <img
-            src="${qrImageUrl}"
-            style="border:8px solid white;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.15)"
-          />
-          <p style="color:#999;font-size:13px;margin-top:16px">
-            El QR expira en ~60s. La página se refresca automáticamente cada 25 segundos.
-          </p>
+          <p style="color:#555">WhatsApp → ⋮ → <b>Dispositivos vinculados</b> → Vincular dispositivo</p>
+          <img src="${qrImageUrl}" style="border:8px solid white;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.15)"/>
+          <p style="color:#999;font-size:13px;margin-top:16px">El QR expira en ~60s. La página se refresca cada 25s.</p>
         </body>
       </html>
     `);
@@ -209,6 +204,7 @@ app.post("/enviar", async (req, res) => {
 // ─── Arrancar ─────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`🚀 Servidor RedMINI en puerto ${PORT}`);
+  console.log(`🔑 APP_SECRET cargado: ${APP_SECRET ? "✅" : "❌ NO DEFINIDO"}`);
   console.log(`📱 Para vincular WhatsApp abrí: <TU_URL>/qr`);
 });
 
